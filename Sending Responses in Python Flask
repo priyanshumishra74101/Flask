@@ -1,0 +1,275 @@
+# Complete Guide: Sending Responses in Python Flask
+
+from flask import Flask, jsonify, request
+import json
+
+# Create the Flask application
+app = Flask(__name__)
+
+# ==== BASIC RESPONSES WITH return ====
+
+@app.route('/')
+def home():
+    """Simplest response - just text"""
+    return "Hello, World! This is my website."
+
+@app.route('/about')
+def about():
+    """Return HTML (what browsers understand)"""
+    return """
+    <html>
+        <head><title>About Us</title></head>
+        <body>
+            <h1>About Our Company</h1>
+            <p>We make awesome Python applications!</p>
+        </body>
+    </html>
+    """
+
+# ==== RETURNING DATA AS JSON ====
+
+@app.route('/user')
+def get_user():
+    """Return data as JSON (what apps understand)"""
+    user_info = {
+        "name": "John Doe",
+        "age": 30,
+        "email": "john@example.com",
+        "city": "Mumbai"
+    }
+    # jsonify converts Python dictionary to JSON format
+    return jsonify(user_info)
+
+@app.route('/users')
+def get_all_users():
+    """Return a list of users as JSON"""
+    users = [
+        {"id": 1, "name": "John", "email": "john@example.com"},
+        {"id": 2, "name": "Jane", "email": "jane@example.com"},
+        {"id": 3, "name": "Bob", "email": "bob@example.com"}
+    ]
+    return jsonify(users)
+
+# ==== HANDLING FORM SUBMISSIONS ====
+
+@app.route('/submit', methods=['POST'])
+def handle_form():
+    """Handle form data and send response"""
+    # Get data sent from the form
+    name = request.form.get('name', 'Anonymous')
+    email = request.form.get('email', 'No email provided')
+    
+    # Process the data (save to database, send email, etc.)
+    # For now, we'll just create a response
+    
+    response_data = {
+        "status": "success",
+        "message": f"Thank you {name}! We received your information.",
+        "data": {
+            "name": name,
+            "email": email,
+            "received_at": "2024-01-15 10:30:00"
+        }
+    }
+    
+    return jsonify(response_data)
+
+# ==== DIFFERENT RESPONSE TYPES ====
+
+@app.route('/api/products')
+def get_products():
+    """API endpoint returning product data"""
+    products = [
+        {
+            "id": 1,
+            "name": "Laptop",
+            "price": 50000,
+            "category": "Electronics",
+            "in_stock": True
+        },
+        {
+            "id": 2,
+            "name": "Book",
+            "price": 500,
+            "category": "Education",
+            "in_stock": True
+        }
+    ]
+    
+    # Add metadata to the response
+    response = {
+        "products": products,
+        "total_count": len(products),
+        "page": 1,
+        "status": "success"
+    }
+    
+    return jsonify(response)
+
+# ==== HANDLING ERRORS ====
+
+@app.route('/api/user/<int:user_id>')
+def get_user_by_id(user_id):
+    """Get specific user by ID with error handling"""
+    
+    # Fake database of users
+    users_db = {
+        1: {"id": 1, "name": "John", "email": "john@example.com"},
+        2: {"id": 2, "name": "Jane", "email": "jane@example.com"}
+    }
+    
+    if user_id in users_db:
+        # User found - return success
+        return jsonify({
+            "status": "success",
+            "user": users_db[user_id]
+        })
+    else:
+        # User not found - return error
+        return jsonify({
+            "status": "error",
+            "message": f"User with ID {user_id} not found"
+        }), 404  # 404 = Not Found status code
+
+# ==== DIFFERENT RESPONSE FORMATS ====
+
+@app.route('/api/search')
+def search():
+    """Handle search with query parameters"""
+    # Get search term from URL: /api/search?q=python&category=programming
+    query = request.args.get('q', '')
+    category = request.args.get('category', 'all')
+    
+    # Fake search results
+    results = [
+        {"title": "Python Basics", "category": "programming"},
+        {"title": "Web Development with Python", "category": "programming"}
+    ]
+    
+    # Filter results based on search
+    if query:
+        results = [r for r in results if query.lower() in r['title'].lower()]
+    
+    if category != 'all':
+        results = [r for r in results if r['category'] == category]
+    
+    return jsonify({
+        "query": query,
+        "category": category,
+        "results": results,
+        "count": len(results)
+    })
+
+# ==== CUSTOM STATUS CODES ====
+
+@app.route('/api/create-user', methods=['POST'])
+def create_user():
+    """Create new user with appropriate status codes"""
+    
+    # Get JSON data from request
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        email = data.get('email')
+        
+        if not name or not email:
+            # Bad request - missing required fields
+            return jsonify({
+                "status": "error",
+                "message": "Name and email are required"
+            }), 400  # 400 = Bad Request
+        
+        # Simulate creating user (in real app, save to database)
+        new_user = {
+            "id": 123,
+            "name": name,
+            "email": email,
+            "created_at": "2024-01-15 10:30:00"
+        }
+        
+        # Success - return created user
+        return jsonify({
+            "status": "success",
+            "message": "User created successfully",
+            "user": new_user
+        }), 201  # 201 = Created
+        
+    except Exception as e:
+        # Internal server error
+        return jsonify({
+            "status": "error",
+            "message": "Something went wrong"
+        }), 500  # 500 = Internal Server Error
+
+# ==== HELPER FUNCTIONS ====
+
+def create_success_response(data, message="Success"):
+    """Helper function to create consistent success responses"""
+    return jsonify({
+        "status": "success",
+        "message": message,
+        "data": data
+    })
+
+def create_error_response(message, status_code=400):
+    """Helper function to create consistent error responses"""
+    return jsonify({
+        "status": "error",
+        "message": message
+    }), status_code
+
+# ==== USING HELPER FUNCTIONS ====
+
+@app.route('/api/calculator')
+def calculator():
+    """Simple calculator API using helper functions"""
+    try:
+        # Get numbers from query parameters
+        a = float(request.args.get('a', 0))
+        b = float(request.args.get('b', 0))
+        operation = request.args.get('op', 'add')
+        
+        if operation == 'add':
+            result = a + b
+        elif operation == 'subtract':
+            result = a - b
+        elif operation == 'multiply':
+            result = a * b
+        elif operation == 'divide':
+            if b == 0:
+                return create_error_response("Cannot divide by zero", 400)
+            result = a / b
+        else:
+            return create_error_response("Invalid operation. Use: add, subtract, multiply, divide", 400)
+        
+        return create_success_response({
+            "a": a,
+            "b": b,
+            "operation": operation,
+            "result": result
+        })
+        
+    except ValueError:
+        return create_error_response("Invalid numbers provided", 400)
+    except Exception as e:
+        return create_error_response("Calculation failed", 500)
+
+# ==== HOW TO RUN THE APP ====
+
+if __name__ == '__main__':
+    print("🚀 Starting Flask application...")
+    print("📍 Available endpoints:")
+    print("   GET  /                    - Home page")
+    print("   GET  /about               - About page") 
+    print("   GET  /user                - Get user info")
+    print("   GET  /users               - Get all users")
+    print("   POST /submit              - Submit form data")
+    print("   GET  /api/products        - Get products")
+    print("   GET  /api/user/<id>       - Get user by ID")
+    print("   GET  /api/search?q=term   - Search")
+    print("   POST /api/create-user     - Create new user")
+    print("   GET  /api/calculator?a=5&b=3&op=add - Calculator")
+    print("📝 Note: Use Postman or curl to test POST endpoints")
+    print("🌐 Server running on: http://localhost:5000")
+    
+    app.run(debug=True)  # debug=True shows helpful error messages
